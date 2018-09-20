@@ -123,16 +123,16 @@ namespace EvacuateSimulation_MultiAgent
                         {
                             double distance = 25;
 
-                            SetUpNodes(new Node(
+                            IntegrateNodes(new Node(
                                 seats[0].PositionX - (seats[0].Width / 2) - distance,
                                 seats[0].PositionY - (seats[0].Height / 2) - distance));
-                            SetUpNodes(new Node(
+                            IntegrateNodes(new Node(
                                 seats[0].PositionX - (seats[0].Width / 2) - distance,
                                 seats[0].PositionY + (seats[0].Height / 2) + distance));
-                            SetUpNodes(new Node(
+                            IntegrateNodes(new Node(
                                 seats[seats.Count() - 1].PositionX + (seats[0].Width / 2) + distance,
                                 seats[seats.Count() - 1].PositionY - (seats[0].Height / 2) - distance));
-                            SetUpNodes(new Node(
+                            IntegrateNodes(new Node(
                                 seats[seats.Count() - 1].PositionX + (seats[0].Width / 2) + distance,
                                 seats[seats.Count() - 1].PositionY + (seats[0].Height / 2) + distance));
                         }
@@ -140,13 +140,14 @@ namespace EvacuateSimulation_MultiAgent
                         //出口の設定
                         foreach (var goal in theater_.Goals)
                         {
-                            nodes_.Add(new Node(goal.PositionX, goal.PositionY, true));
+                            nodes_.Add(new Node(goal.PositionX, goal.PositionY, NodeKind.Goal));
                         }
 
                         //経路の設定
+
                         foreach (var node1 in nodes_)
                         {
-                            if (node1.IsGoalNode)
+                            if (node1.NodeStatus == NodeKind.Goal)
                             {
                                 continue;
                             }
@@ -158,13 +159,109 @@ namespace EvacuateSimulation_MultiAgent
                                     continue;
                                 }
 
-                                if (CheckAllSidesCollision(node1.X, node1.Y, node2.X, node2.Y, 25))
+                                if (DijkstraUtility.DetermineCollision(node1, node2, 25, theater_))
                                 {
-                                    node1.NextNodes.Add(node2);
+                                    node1.NextNodesWithThickPath.Add(node2);
+                                }/*
+                                else if (CheckAllSidesCollision(node1, node2, 15))
+                                {
+                                    node1.NextNodesWithThinPath.Add(node2);
                                 }
+                                */
                             }
                         }
 
+
+                        //エージェントの設定
+                        agents_.Add(new AgentBase(300, 150));
+
+                        //全てのエージェントで都度移動可能なノードを調べて探索する
+                        foreach (var agent in agents_)
+                        {
+                            foreach (var node in nodes_)
+                            {
+                                if (DijkstraUtility.DetermineCollision(agent.AgentNode, node, 25, theater_))
+                                {
+                                    agent.AgentNode.NextNodes.Add(node);
+                                }
+                            }
+                            
+                            Node goalNode = null;
+                            int num = 1;
+                            File.WriteAllText(
+                                    "D:\\VisualStudio\\Log.txt",
+                                    $"--------------------------Start Dijkstra------------------------------" + Environment.NewLine + $"Agent: {agent.X}, {agent.Y}" + Environment.NewLine);
+
+                            while (true)
+                            {
+                                File.AppendAllText(
+                                    "D:\\VisualStudio\\Log.txt",
+                                    $"-------{num}--------" + Environment.NewLine);
+
+                                num++;
+
+                                Node determinedNode = null;
+
+                                agent.AgentNode.DoDijkstra(agent.AgentNode.NextNodes, ref determinedNode);
+
+                                if (determinedNode == null)
+                                {
+                                    throw new Exception("ゴールにたどり着けません");
+                                }
+
+                                File.AppendAllText(
+                                    "D:\\VisualStudio\\Log.txt",
+                                    $"{determinedNode.X}, {determinedNode.Y}, cost = {determinedNode.DistanceCost}" + Environment.NewLine);
+
+                                    if (determinedNode.NodeStatus == NodeKind.Goal)
+                                    {
+                                        goalNode = determinedNode;
+                                        break;
+                                    }
+
+                                determinedNode.NodeStatus = NodeKind.Determined;
+
+                                foreach (var node in nodes_)
+                                {
+                                    if (determinedNode == node
+                                        || node.NodeStatus == NodeKind.Determined
+                                        || node.NodeStatus == NodeKind.Fucking)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (DijkstraUtility.DetermineCollision(determinedNode, node, 25, theater_))
+                                    {
+                                        determinedNode.NextNodes.Add(node);
+                                    }
+                                }
+                            }
+
+                            while (true)
+                            {
+                                agent.RouteNode.Add(goalNode);
+
+                                goalNode = goalNode.PreviousNode;
+
+                                if (goalNode.NodeStatus == NodeKind.Start)
+                                {
+                                    agent.RouteNode.Reverse();
+                                    break;
+                                }
+                            }
+                           
+                            /*
+                            foreach (var node in nodes_)
+                            {
+                                node.NextNode = null;
+                                node.NextNodes.Clear();
+                                node.NodeStatus = NodeKind.Unsearched;
+                                node.PreviousNode = null;
+                                node.DistanceCost = 0;
+                            }
+                            */
+                        }
+                        /*
                         foreach(var seats in theater_.Seats)
                         {
                             foreach(var seat in seats)
@@ -172,6 +269,7 @@ namespace EvacuateSimulation_MultiAgent
                                 agents_.Add(new AgentBase(seat.PositionX, seat.PositionY - (seat.Height / 2) - 25));
                             }
                         }
+                        */
 
                         DrawLayout();
                     }
@@ -184,7 +282,7 @@ namespace EvacuateSimulation_MultiAgent
         /// ノードが他のノードの近くにあった時ノードを統合する
         /// </summary>
         /// <param name="node">ノード</param>
-        public void SetUpNodes(Node node)
+        public void IntegrateNodes(Node node)
         {
             foreach (var nodes in nodes_)
             {
@@ -198,7 +296,7 @@ namespace EvacuateSimulation_MultiAgent
 
             nodes_.Add(node);
         }
-
+        
         /// <summary>
         /// レイアウトを描画する関数
         /// </summary>
@@ -215,6 +313,7 @@ namespace EvacuateSimulation_MultiAgent
                 PixelFormats.Default);
 
             //これをしないと画像が更新されない
+            //正確に書けば画像のサイズ変更ができない
             image_.Source = Bitmap;
 
             DrawContext = DrawVisual.RenderOpen();
@@ -259,9 +358,17 @@ namespace EvacuateSimulation_MultiAgent
             }
 
             //経路の描画
-            foreach(var node1 in nodes_)
+            foreach (var node1 in nodes_)
             {
-                foreach (var node2 in node1.NextNodes)
+                foreach (var node2 in node1.NextNodesWithThinPath)
+                {
+                    DrawContext.DrawLine(
+                        new Pen(Brushes.Blue, 1),
+                        new Point(node1.X, node1.Y),
+                        new Point(node2.X, node2.Y));
+                }
+
+                foreach (var node2 in node1.NextNodesWithThickPath)
                 {
                     DrawContext.DrawLine(
                         new Pen(Brushes.Black, 1),
@@ -271,7 +378,7 @@ namespace EvacuateSimulation_MultiAgent
             }
 
             //エージェントの描画
-            foreach(var agent in agents_)
+            foreach (var agent in agents_)
             {
                 DrawContext.DrawEllipse(
                     null,
@@ -279,169 +386,29 @@ namespace EvacuateSimulation_MultiAgent
                     new Point(agent.X, agent.Y),
                     agent.Radius,
                     agent.Radius);
+                
+                foreach(var node in agent.RouteNode)
+                {
+                    DrawContext.DrawLine(
+                        new Pen(Brushes.Red, 10),
+                        new Point(node.PreviousNode.X, node.PreviousNode.Y),
+                        new Point(node.X, node.Y));
+                }
+
+                foreach(var node in agent.AgentNode.NextNodes)
+                {
+                     DrawContext.DrawLine(
+                        new Pen(Brushes.Black, 1),
+                        new Point(agent.AgentNode.X, agent.AgentNode.Y),
+                        new Point(node.X, node.Y));
+                }
+                
             }
 
             DrawContext.Close();
 
             //表示する画像を更新 
             Bitmap.Render(DrawVisual);
-        }
-
-        /// <summary>
-        /// ノード間を中心線とする矩形の辺と全ての席との衝突判定をチェックする関数
-        /// </summary>
-        /// 
-        /// <remarks>
-        ///         |------------------|
-        ///  ノード ○----------------○ノード
-        ///         |------------------|
-        /// </remarks>
-        /// 
-        /// <param name="x1">ノード1のX座標</param>
-        /// <param name="y1">ノード1のY座標</param>
-        /// <param name="x2">ノード2のX座標</param>
-        /// <param name="y2">ノード2のY座標</param>
-        /// <param name="tolerance">許容範囲</param>
-        /// <returns>
-        /// true:衝突していない
-        /// false:衝突している
-        /// </returns>
-        public bool CheckAllSidesCollision(double x1, double y1, double x2, double y2, double tolerance)
-        {
-            double theta = Math.Atan2(y2 - y1, x2 - x1);
-
-            //上辺
-            if (CheckCollisionDeterminationWithAllSeatsAndSide(
-                new Point(x1 - tolerance * Math.Sin(theta), y1 + tolerance * Math.Cos(theta)),
-                new Point(x2 - tolerance * Math.Sin(theta), y2 + tolerance * Math.Cos(theta))))
-            {
-                return false;
-            }
-
-            //右辺
-            if (CheckCollisionDeterminationWithAllSeatsAndSide(
-                new Point(x2 - tolerance * Math.Sin(theta), y2 + tolerance * Math.Cos(theta)),
-                new Point(x2 + tolerance * Math.Sin(theta), y2 - tolerance * Math.Cos(theta))))
-            {
-                return false;
-            }
-
-            //下辺
-            if (CheckCollisionDeterminationWithAllSeatsAndSide(
-                new Point(x2 + tolerance * Math.Sin(theta), y2 - tolerance * Math.Cos(theta)),
-                new Point(x1 + tolerance * Math.Sin(theta), y1 - tolerance * Math.Cos(theta))))
-            {
-                return false;
-            }
-
-            //左辺
-            if (CheckCollisionDeterminationWithAllSeatsAndSide(
-                new Point(x1 + tolerance * Math.Sin(theta), y1 - tolerance * Math.Cos(theta)),
-                new Point(x1 - tolerance * Math.Sin(theta), y1 + tolerance * Math.Cos(theta))))
-            {
-                return false;
-            }
-
-
-            return true;
-        }
-
-        /// <summary>
-        /// 辺と席との衝突判定
-        /// </summary>
-        /// <param name="r1">辺の座標1</param>
-        /// <param name="r2">辺の座標2</param>
-        /// <returns>
-        /// true:衝突している
-        /// false:衝突していない
-        /// </returns>
-        public bool CheckCollisionDeterminationWithAllSeatsAndSide(Point r1, Point r2)
-        {
-            bool t1, t2;
-
-            foreach (var seats in theater_.Seats)
-            {
-                foreach (var seat in seats)
-                {
-                    var p1 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY - (seat.Height / 2));
-                    var p2 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY - (seat.Height / 2));
-
-                    //点を入れ替えて判定しないといけない
-                    t1 = CheckCollisionSide(r1, r2, p1, p2);
-                    t2 = CheckCollisionSide(p1, p2, r1, r2);
-                    
-                    if(t1 && t2)
-                    {
-                        return true;
-                    }
-
-                    p1 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY - (seat.Height / 2));
-                    p2 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY + (seat.Height / 2));
-
-                    t1 = CheckCollisionSide(r1, r2, p1, p2);
-                    t2 = CheckCollisionSide(p1, p2, r1, r2);
-
-                    if (t1 && t2)
-                    {
-                        return true;
-                    }
-
-                    p1 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY + (seat.Height / 2));
-                    p2 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY + (seat.Height / 2));
-
-                    t1 = CheckCollisionSide(r1, r2, p1, p2);
-                    t2 = CheckCollisionSide(p1, p2, r1, r2);
-
-                    if (t1 && t2)
-                    {
-                        return true;
-                    }
-
-                    p1 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY + (seat.Height / 2));
-                    p2 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY - (seat.Height / 2));
-
-                    t1 = CheckCollisionSide(r1, r2, p1, p2);
-                    t2 = CheckCollisionSide(p1, p2, r1, r2);
-
-                    if (t1 && t2)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false; //クロスしていない
-        }
-
-        /// <summary>
-        /// 辺と辺の衝突判定
-        /// </summary>
-        /// <param name="r1">辺1の座標1</param>
-        /// <param name="r2">辺1の座標2</param>
-        /// <param name="p1">辺2の座標1</param>
-        /// <param name="p2">辺2の座標2</param>
-        /// <returns>
-        /// true:衝突している
-        /// false:衝突していない
-        /// </returns>
-        bool CheckCollisionSide(Point r1, Point r2, Point p1, Point p2)
-        {
-            double t1, t2;
-
-            //衝突判定計算
-            t1 = (r1.X - r2.X) * (p1.Y - r1.Y) + (r1.Y - r2.Y) * (r1.X - p1.X);
-            t2 = (r1.X - r2.X) * (p2.Y - r1.Y) + (r1.Y - r2.Y) * (r1.X - p2.X);
-
-            //それぞれの正負が異なる（積が負になる）か、0（点が直線上にある）
-            //ならクロスしている
-            if (t1 * t2 < 0)
-            {
-                return (true); //クロスしている
-            }
-            else
-            {
-                return (false); //クロスしない
-            }
         }
     }
 }

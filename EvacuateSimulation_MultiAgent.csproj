@@ -75,6 +75,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Agent.cs" />
+    <Compile Include="DijkstraUtility.cs" />
     <Compile Include="MainWindowViewModel.cs" />
     <Compile Include="MultiAgentNode.cs" />
     <Compile Include="TheaterLayoutParam.cs" />
