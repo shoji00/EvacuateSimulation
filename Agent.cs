@@ -28,10 +28,27 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public double Speed { get; set; } = 15.0;
 
+        /// <summary>
+        /// 距離のみの総コスト
+        /// </summary>
+        public double DistanceCost { get; set; } = 0.0;
+
+        /// <summary>
+        /// エージェントの現在地のノード
+        /// </summary>
+        public Node AgentNode { get; set; }
+
+        /// <summary>
+        /// 実際に避難する経路上のノード
+        /// エージェントが向かう順に並べる
+        /// </summary>
+        public List<Node> RouteNode { get; set; } = new List<Node>();
+
         public AgentBase(double x, double y)
         {
             X = x;
             Y = y;
+            AgentNode = new Node(X, Y, NodeKind.Start);
         }
     }
 }
