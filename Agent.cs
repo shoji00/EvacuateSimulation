@@ -6,18 +6,11 @@ using System.Threading.Tasks;
 
 namespace EvacuateSimulation_MultiAgent
 {
+    /// <summary>
+    /// エージェントのBaseクラス
+    /// </summary>
     public class AgentBase
     {
-        /// <summary>
-        /// X座標
-        /// </summary>
-        public double X { get; set; }
-
-        /// <summary>
-        /// Y座標
-        /// </summary>
-        public double Y { get; set; }
-
         /// <summary>
         /// エージェントの半径
         /// </summary>
@@ -36,7 +29,7 @@ namespace EvacuateSimulation_MultiAgent
         /// <summary>
         /// エージェントの現在地のノード
         /// </summary>
-        public Node AgentNode { get; set; }
+        public Node Node { get; set; }
 
         /// <summary>
         /// 実際に避難する経路上のノード
@@ -44,11 +37,16 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public List<Node> RouteNode { get; set; } = new List<Node>();
 
+        //-----------------------------------------------------------------------
+        /// <summary>
+        /// コンストラクタ
+        /// </summary>
+        /// <param name="x">x座標</param>
+        /// <param name="y">y座標</param>
+        //-----------------------------------------------------------------------
         public AgentBase(double x, double y)
         {
-            X = x;
-            Y = y;
-            AgentNode = new Node(X, Y, NodeKind.Start);
+            Node = new Node(x, y, NodeKind.Start);
         }
     }
 }

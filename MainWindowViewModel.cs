@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -14,6 +12,9 @@ using System.Windows.Media.Imaging;
 
 namespace EvacuateSimulation_MultiAgent
 {
+    /// <summary>
+    /// MainWindowのViewModel
+    /// </summary>
     public class MainWindowViewModel
     {
         /// <summary>
@@ -57,18 +58,22 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public ReactiveCommand LoadLayoutCommand { get; set; }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// Xamlデザイナー用のコンストラクタ
         /// </summary>
+        //-----------------------------------------------------------------------
         public MainWindowViewModel() 
             : this(new Image())
         {
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// コンストラクタ
         /// </summary>
         /// <param name="image">XamlにあるImageコントロール</param>
+        //-----------------------------------------------------------------------
         public MainWindowViewModel(Image image)
         {
             theater_ = new TheaterLayoutParam();
@@ -93,9 +98,11 @@ namespace EvacuateSimulation_MultiAgent
             LoadLayoutCommand.Subscribe(_ => OpenFile());
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// Jsonファイルからレイアウト情報を読み込む関数
         /// </summary>
+        //-----------------------------------------------------------------------
         public void OpenFile()
         {
             using (var fileDialog = new OpenFileDialog())
@@ -143,100 +150,66 @@ namespace EvacuateSimulation_MultiAgent
                             nodes_.Add(new Node(goal.PositionX, goal.PositionY, NodeKind.Goal));
                         }
 
-                        //経路の設定
-
-                        foreach (var node1 in nodes_)
-                        {
-                            if (node1.NodeStatus == NodeKind.Goal)
-                            {
-                                continue;
-                            }
-
-                            foreach (var node2 in nodes_)
-                            {
-                                if (node1 == node2)
-                                {
-                                    continue;
-                                }
-
-                                if (DijkstraUtility.DetermineCollision(node1, node2, 25, theater_))
-                                {
-                                    node1.NextNodesWithThickPath.Add(node2);
-                                }/*
-                                else if (CheckAllSidesCollision(node1, node2, 15))
-                                {
-                                    node1.NextNodesWithThinPath.Add(node2);
-                                }
-                                */
-                            }
-                        }
-
-
                         //エージェントの設定
                         agents_.Add(new AgentBase(300, 150));
 
                         //全てのエージェントで都度移動可能なノードを調べて探索する
                         foreach (var agent in agents_)
                         {
+                            //最初にエージェントの現在地から移動可能なノードの候補を探す
                             foreach (var node in nodes_)
                             {
-                                if (DijkstraUtility.DetermineCollision(agent.AgentNode, node, 25, theater_))
+                                if (DijkstraUtility.IsColidedSomething(agent.Node, node, 25, theater_))
                                 {
-                                    agent.AgentNode.NextNodes.Add(node);
+                                    agent.Node.NextNodes.Add(node);
                                 }
                             }
                             
                             Node goalNode = null;
-                            int num = 1;
-                            File.WriteAllText(
-                                    "D:\\VisualStudio\\Log.txt",
-                                    $"--------------------------Start Dijkstra------------------------------" + Environment.NewLine + $"Agent: {agent.X}, {agent.Y}" + Environment.NewLine);
-
+                            
                             while (true)
                             {
-                                File.AppendAllText(
-                                    "D:\\VisualStudio\\Log.txt",
-                                    $"-------{num}--------" + Environment.NewLine);
-
-                                num++;
-
                                 Node determinedNode = null;
 
-                                agent.AgentNode.DoDijkstra(agent.AgentNode.NextNodes, ref determinedNode);
+                                //ダイクストラで探索
+                                agent.Node.DoDijkstra(agent.Node.NextNodes, ref determinedNode);
 
+                                //ゴールにたどり着けないエージェントがいるとき
+                                //エージェントの初期位置がしっかりしていれば出ないはず
                                 if (determinedNode == null)
                                 {
                                     throw new Exception("ゴールにたどり着けません");
                                 }
 
-                                File.AppendAllText(
-                                    "D:\\VisualStudio\\Log.txt",
-                                    $"{determinedNode.X}, {determinedNode.Y}, cost = {determinedNode.DistanceCost}" + Environment.NewLine);
+                                //ゴールなら終了
+                                if (determinedNode.NodeStatus == NodeKind.Goal)
+                                {
+                                    goalNode = determinedNode.Clone();
+                                    break;
+                                }
 
-                                    if (determinedNode.NodeStatus == NodeKind.Goal)
-                                    {
-                                        goalNode = determinedNode;
-                                        break;
-                                    }
-
+                                //ノードを確定ノードに変更
                                 determinedNode.NodeStatus = NodeKind.Determined;
 
+                                //確定ノードから移動可能なノードを全てNextNodesに追加
                                 foreach (var node in nodes_)
                                 {
                                     if (determinedNode == node
-                                        || node.NodeStatus == NodeKind.Determined
-                                        || node.NodeStatus == NodeKind.Fucking)
+                                        || node.NodeStatus == NodeKind.Determined)
                                     {
                                         continue;
                                     }
 
-                                    if (DijkstraUtility.DetermineCollision(determinedNode, node, 25, theater_))
+                                    if (DijkstraUtility.IsColidedSomething(determinedNode, node, 25, theater_))
                                     {
                                         determinedNode.NextNodes.Add(node);
                                     }
                                 }
                             }
 
+                            //出口までの経路をエージェントに保持させる
+                            //この後レイアウト内のノードは全て初期化されるのでディープコピーしたものを渡す
+                            //ゴールを見つけた時にゴールノードとゴールまでに通るノードをディープコピーしてあるためここでCloneする必要はない
                             while (true)
                             {
                                 agent.RouteNode.Add(goalNode);
@@ -250,27 +223,21 @@ namespace EvacuateSimulation_MultiAgent
                                 }
                             }
                            
-                            /*
+                            //ノードの初期化
                             foreach (var node in nodes_)
                             {
-                                node.NextNode = null;
                                 node.NextNodes.Clear();
-                                node.NodeStatus = NodeKind.Unsearched;
-                                node.PreviousNode = null;
-                                node.DistanceCost = 0;
-                            }
-                            */
-                        }
-                        /*
-                        foreach(var seats in theater_.Seats)
-                        {
-                            foreach(var seat in seats)
-                            {
-                                agents_.Add(new AgentBase(seat.PositionX, seat.PositionY - (seat.Height / 2) - 25));
-                            }
-                        }
-                        */
 
+                                if (node.NodeStatus != NodeKind.Goal)
+                                {
+                                    node.NodeStatus = NodeKind.Unsearched;
+                                }
+
+                                node.PreviousNode = null;
+                                node.DistanceCost = double.MaxValue;
+                            }
+                        }
+                        
                         DrawLayout();
                     }
                 }
@@ -278,10 +245,12 @@ namespace EvacuateSimulation_MultiAgent
 
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// ノードが他のノードの近くにあった時ノードを統合する
         /// </summary>
         /// <param name="node">ノード</param>
+        //-----------------------------------------------------------------------
         public void IntegrateNodes(Node node)
         {
             foreach (var nodes in nodes_)
@@ -296,11 +265,11 @@ namespace EvacuateSimulation_MultiAgent
 
             nodes_.Add(node);
         }
-        
+        //-----------------------------------------------------------------------
         /// <summary>
-        /// レイアウトを描画する関数
+        /// レイアウトの描画
         /// </summary>
-        /// <param name="layout">レイアウトの情報</param>
+        //-----------------------------------------------------------------------
         public void DrawLayout()
         {
             double radius = 5;
@@ -357,36 +326,17 @@ namespace EvacuateSimulation_MultiAgent
                     radius);
             }
 
-            //経路の描画
-            foreach (var node1 in nodes_)
-            {
-                foreach (var node2 in node1.NextNodesWithThinPath)
-                {
-                    DrawContext.DrawLine(
-                        new Pen(Brushes.Blue, 1),
-                        new Point(node1.X, node1.Y),
-                        new Point(node2.X, node2.Y));
-                }
-
-                foreach (var node2 in node1.NextNodesWithThickPath)
-                {
-                    DrawContext.DrawLine(
-                        new Pen(Brushes.Black, 1),
-                        new Point(node1.X, node1.Y),
-                        new Point(node2.X, node2.Y));
-                }
-            }
-
             //エージェントの描画
             foreach (var agent in agents_)
             {
                 DrawContext.DrawEllipse(
                     null,
                     new Pen(Brushes.Blue, 1),
-                    new Point(agent.X, agent.Y),
+                    new Point(agent.Node.X, agent.Node.Y),
                     agent.Radius,
                     agent.Radius);
                 
+                //出口までの経路の描画
                 foreach(var node in agent.RouteNode)
                 {
                     DrawContext.DrawLine(
@@ -394,15 +344,6 @@ namespace EvacuateSimulation_MultiAgent
                         new Point(node.PreviousNode.X, node.PreviousNode.Y),
                         new Point(node.X, node.Y));
                 }
-
-                foreach(var node in agent.AgentNode.NextNodes)
-                {
-                     DrawContext.DrawLine(
-                        new Pen(Brushes.Black, 1),
-                        new Point(agent.AgentNode.X, agent.AgentNode.Y),
-                        new Point(node.X, node.Y));
-                }
-                
             }
 
             DrawContext.Close();

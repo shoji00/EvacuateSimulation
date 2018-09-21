@@ -31,6 +31,7 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public double PositionY { get; set; }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// コンストラクタ
         /// </summary>
@@ -38,6 +39,7 @@ namespace EvacuateSimulation_MultiAgent
         /// <param name="height">座席の横幅</param>
         /// <param name="positionX">座席のX座標</param>
         /// <param name="positionY">座席のY座標</param>
+        //-----------------------------------------------------------------------
         public TheaterSeatParam(double width, double height, double positionX, double positionY)
         {
             Height = height;
@@ -72,6 +74,7 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public double PositionY { get; set; }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// コンストラクタ
         /// </summary>
@@ -79,6 +82,7 @@ namespace EvacuateSimulation_MultiAgent
         /// <param name="height">出口の横幅</param>
         /// <param name="positionX">出口のX座標</param>
         /// <param name="positionY">出口のY座標</param>
+        //-----------------------------------------------------------------------
         public TheaterGoalParam(double width, double height, double positionX, double positionY)
         {
             Height = height;

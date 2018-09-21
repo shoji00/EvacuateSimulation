@@ -7,26 +7,32 @@ using System.Windows;
 
 namespace EvacuateSimulation_MultiAgent
 {
+    /// <summary>
+    /// ダイクストラを用いた探索のよく使う関数クラス
+    /// </summary>
     public static class DijkstraUtility
     {
+        //-----------------------------------------------------------------------
         /// <summary>
         /// ノード間を中心線とする矩形の辺と全ての席との衝突判定をチェックする関数
         /// </summary>
         /// 
         /// <remarks>
         ///         |------------------|
-        ///  ノード ○----------------○ノード
+        ///  ノード1○----------------○ノード2
         ///         |------------------|
         /// </remarks>
         /// 
         /// <param name="node1">ノード1</param>
         /// <param name="node2">ノード2</param>
         /// <param name="tolerance">許容範囲</param>
+        /// <param name="theater">映画館のレイアウト</param>
         /// <returns>
         /// true:衝突していない
         /// false:衝突している
         /// </returns>
-        public static bool DetermineCollision(Node node1, Node node2, double tolerance, TheaterLayoutParam theater)
+        //-----------------------------------------------------------------------
+        public static bool IsColidedSomething(Node node1, Node node2, double tolerance, TheaterLayoutParam theater)
         {
             var x1 = node1.X;
             var x2 = node2.X;
@@ -75,8 +81,9 @@ namespace EvacuateSimulation_MultiAgent
             return true;
         }
 
+        ///-----------------------------------------------------------------------  
         /// <summary>
-        /// 辺と席との衝突判定
+        /// 辺と席の全ての辺との衝突判定
         /// </summary>
         /// <param name="r1">辺の座標1</param>
         /// <param name="r2">辺の座標2</param>
@@ -84,6 +91,7 @@ namespace EvacuateSimulation_MultiAgent
         /// true:衝突している
         /// false:衝突していない
         /// </returns>
+        //-----------------------------------------------------------------------
         private static bool CheckCollisionDeterminationWithAllSeatsAndSide(Point r1, Point r2, TheaterLayoutParam theater)
         {
             bool t1, t2;
@@ -92,6 +100,7 @@ namespace EvacuateSimulation_MultiAgent
             {
                 foreach (var seat in seats)
                 {
+                    //席の上辺
                     var p1 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY - (seat.Height / 2));
                     var p2 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY - (seat.Height / 2));
 
@@ -104,6 +113,7 @@ namespace EvacuateSimulation_MultiAgent
                         return true;
                     }
 
+                    //席の右辺
                     p1 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY - (seat.Height / 2));
                     p2 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY + (seat.Height / 2));
 
@@ -115,6 +125,7 @@ namespace EvacuateSimulation_MultiAgent
                         return true;
                     }
 
+                    //席の下辺
                     p1 = new Point(seat.PositionX + (seat.Width / 2), seat.PositionY + (seat.Height / 2));
                     p2 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY + (seat.Height / 2));
 
@@ -126,6 +137,7 @@ namespace EvacuateSimulation_MultiAgent
                         return true;
                     }
 
+                    //席の左辺
                     p1 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY + (seat.Height / 2));
                     p2 = new Point(seat.PositionX - (seat.Width / 2), seat.PositionY - (seat.Height / 2));
 
@@ -142,6 +154,7 @@ namespace EvacuateSimulation_MultiAgent
             return false; //クロスしていない
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// 辺と辺の衝突判定
         /// </summary>
@@ -153,6 +166,7 @@ namespace EvacuateSimulation_MultiAgent
         /// true:衝突している
         /// false:衝突していない
         /// </returns>
+        //-----------------------------------------------------------------------
         private static bool CheckCollisionSide(Point r1, Point r2, Point p1, Point p2)
         {
             double t1, t2;

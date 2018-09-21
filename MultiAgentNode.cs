@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace EvacuateSimulation_MultiAgent
 {
+    /// <summary>
+    /// ノードクラス
+    /// </summary>
     public class Node
     {
         /// <summary>
@@ -15,12 +18,12 @@ namespace EvacuateSimulation_MultiAgent
         public NodeKind NodeStatus { get; set; }
 
         /// <summary>
-        /// ノードの中心のX座標
+        /// 中心のX座標
         /// </summary>
         public double X { get; set; }
 
         /// <summary>
-        /// ノードの中心のY座標
+        /// 中心のY座標
         /// </summary>
         public double Y { get; set; }
 
@@ -30,24 +33,9 @@ namespace EvacuateSimulation_MultiAgent
         public Node PreviousNode { get; set; }
 
         /// <summary>
-        /// 移動（候補）先のノード
-        /// </summary>
-        public Node NextNode { get; set; }
-
-        /// <summary>
         /// 移動できるノード候補
         /// </summary>
         public List<Node> NextNodes { get; set; } = new List<Node>();
-
-        /// <summary>
-        /// 移動候補先ノード(太い経路)
-        /// </summary>
-        public List<Node> NextNodesWithThickPath { get; set; } = new List<Node>();
-
-        /// <summary>
-        /// 移動候補先ノード(細い経路)
-        /// </summary>
-        public List<Node> NextNodesWithThinPath { get; set; } = new List<Node>();
 
         /// <summary>
         /// ノードの半径
@@ -59,6 +47,14 @@ namespace EvacuateSimulation_MultiAgent
         /// </summary>
         public double DistanceCost { get; set; } = double.MaxValue;
 
+        //-----------------------------------------------------------------------
+        /// <summary>
+        /// コンストラクタ
+        /// </summary>
+        /// <param name="x">x座標</param>
+        /// <param name="y">y座標</param>
+        /// <param name="kind">ノードの種類</param>
+        //-----------------------------------------------------------------------
         public Node(double x, double y, NodeKind kind = NodeKind.Unsearched)
         {
             X = x;
@@ -66,10 +62,17 @@ namespace EvacuateSimulation_MultiAgent
             NodeStatus = kind;
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// コピーコンストラクタ
         /// </summary>
+        /// 
+        /// <remarks>
+        /// 全てのプロパティをコピーする必要はないので要りそうなものだけ
+        /// </remarks>
+        /// 
         /// <param name="node">コピーしたいノード</param>
+        //-----------------------------------------------------------------------
         public Node(Node node)
         {
             NodeStatus = node.NodeStatus;
@@ -80,24 +83,30 @@ namespace EvacuateSimulation_MultiAgent
             Radius = node.Radius;
 
             DistanceCost = node.DistanceCost;
+
+            PreviousNode = node.PreviousNode?.Clone();
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// ダイクストラ法を用いた探索
         /// </summary>
+        /// 
+        /// <remarks>再帰関数</remarks>
+        /// 
         /// <param name="nodes">移動候補先全てのノード</param>
-        /// <returns>
-        /// true:ゴールが見つかった
-        /// false:ゴールが見つからなかった
-        /// </returns>
-        public void DoDijkstra(List<Node> nodes, ref Node fixedNode, int i = 0)
+        /// <param name="fixedNodes">確定ノードの保存先（参照先）</param>
+        //-----------------------------------------------------------------------
+        public void DoDijkstra(List<Node> nodes, ref Node fixedNode)
         {
             foreach(var node in nodes)
             {
+                //もしも自身を含めてダイクストラ法を用いてしまうと無限ループになる可能性あり
                 if (this == node)
                 {
                     continue;
                 }
+                //確定ノードの場合はさらにその先まで探索する
                 else if (node.NodeStatus == NodeKind.Determined)
                 {
                     if (node.NextNodes.Count() == 0)
@@ -105,17 +114,20 @@ namespace EvacuateSimulation_MultiAgent
                         break;
                     }
 
+                    //確定したルート通りでないと堂々巡りとなり探索が終わらない
                     if(node.PreviousNode != this)
                     {
                         continue;
                     }
-                    File.AppendAllText(
-                                    "D:\\VisualStudio\\Log.txt",
-                                    $"determined:{node.X}, {node.Y}, {node.DistanceCost}" + Environment.NewLine);
-                    node.DoDijkstra(node.NextNodes, ref fixedNode, ++i);
+
+                    //ダイクストラで探索
+                    node.DoDijkstra(node.NextNodes, ref fixedNode);
                 }
+                //確定ノードじゃない時はコストを計算する
                 else
                 {
+                    //コスト計算
+                    // TODO 距離以外も用いた計算の実装
                     var temporaryCost = CalculateCost(node);
 
                     if (fixedNode == null)
@@ -127,13 +139,9 @@ namespace EvacuateSimulation_MultiAgent
                     else if (fixedNode.DistanceCost > temporaryCost)
                     {
                         fixedNode = node;
-
-                        if (node.DistanceCost > temporaryCost)
-                        {
-                            node.DistanceCost = temporaryCost;
-                            node.PreviousNode = this;
-                        }
+                        
                     }
+                    //コストが今までの探索で得たそのノードのコストより小さかったら更新
                     else if (node.DistanceCost > temporaryCost)
                     {
                         node.DistanceCost = temporaryCost;
@@ -141,19 +149,20 @@ namespace EvacuateSimulation_MultiAgent
                     }
                 }
             }
-            
-            File.AppendAllText(
-                                "D:\\VisualStudio\\Log.txt",
-                                $"{i}層目, {fixedNode.X}, {fixedNode.Y}, {fixedNode.DistanceCost}" + Environment.NewLine);
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// コストを計算
         /// </summary>
         /// <param name="node">移動候補先のノード</param>
         /// <returns>コスト</returns>
+        //-----------------------------------------------------------------------
         private double CalculateCost(Node node)
         {
+            //100000に意味はない充分に大きい値であれば良し
+            //コストが無限の時にこの関数を呼ぶことはないはずなのでこの条件式はいらない
+            //が、念のため書いておく
             if(DistanceCost >= 100000)
             {
                 return this.DistanceFromNode(node);
@@ -162,18 +171,35 @@ namespace EvacuateSimulation_MultiAgent
             return DistanceCost + this.DistanceFromNode(node);
         }
 
+        //-----------------------------------------------------------------------
         /// <summary>
         /// ディープコピー
         /// </summary>
         /// <returns>コピーしたノード</returns>
+        //-----------------------------------------------------------------------
         public Node Clone()
         {
+            //コピーコンストラクタ
+            //クラスは参照型なので
+            //return this;
+            //をしてしまうとこのクラスの参照を渡してしまう
             return new Node(this);
         }
     }
 
+    /// <summary>
+    /// ノードの拡張クラス
+    /// </summary>
     public static class NodeExpansion
     {
+        //-----------------------------------------------------------------------
+        /// <summary>
+        /// ノード間の距離を計算する
+        /// </summary>
+        /// <param name="node1">自身のノード</param>
+        /// <param name="node2">ノード</param>
+        /// <returns></returns>
+        //-----------------------------------------------------------------------
         public static double DistanceFromNode(this Node node1, Node node2)
         {
             return Math.Sqrt(
@@ -191,12 +217,7 @@ namespace EvacuateSimulation_MultiAgent
         /// 未探索
         /// </summary>
         Unsearched,
-        
-        /// <summary>
-        /// 探索済み
-        /// </summary>
-        Searched,
-        
+
         /// <summary>
         /// 確定
         /// </summary>
@@ -210,8 +231,6 @@ namespace EvacuateSimulation_MultiAgent
         /// <summary>
         /// ゴール
         /// </summary>
-        Goal,
-
-        Fucking
+        Goal
     }
 }
